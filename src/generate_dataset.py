@@ -5,6 +5,7 @@ Output CSV columns: symptom_0 ... symptom_19, label
 import argparse
 import csv
 import random
+import os
 
 
 DISEASES = [
@@ -44,6 +45,11 @@ def generate_sample(profiles, n_symptoms=20):
 
 def main(out_path, n=1000, n_symptoms=20):
     profiles = build_disease_profiles(n_symptoms)
+    # ensure output directory exists
+    out_dir = os.path.dirname(out_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
     with open(out_path, "w", newline="") as f:
         writer = csv.writer(f)
         header = [f"symptom_{i}" for i in range(n_symptoms)] + ["label"]
