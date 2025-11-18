@@ -3,3 +3,8 @@ scikit-learn
 joblib
 python-docx
 flask
+streamlit
+xgboost
+shap
+matplotlib
+reportlab
