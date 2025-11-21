@@ -909,7 +909,7 @@ def main():
                 f"- Symptoms: {', '.join(selected)}"
             )
 
-            st.markdown("### 📥 Download Premium PDF Report")
+            st.markdown("### 📥 Download Patient's PDF Report")
 
             patient_info = [
                 f"Name: {patient_name}",
