@@ -648,7 +648,7 @@ def feature_importance_figure(model, feature_names, note=None):
 
 
 # --------------------------------------------------------------
-# PREMIUM PDF GENERATION
+# PREMIUM PDF GENERATION (UPDATED FOR PATIENT NAME)
 # --------------------------------------------------------------
 def draw_section_title(pdf, x, y, title):
     pdf.setFont("Helvetica-Bold", 14)
@@ -659,21 +659,12 @@ def draw_section_title(pdf, x, y, title):
     pdf.line(x, y - 3, x + 500, y - 3)
 
 
-def generate_premium_pdf(
-    patient_info,
-    prediction,
-    disease_info,
-    top_probs,
-    shap_fig=None,
-):
-    """
-    Generate a premium hospital-style PDF report.
-    """
+def generate_premium_pdf(patient_name, patient_info, prediction, disease_info, top_probs, shap_fig=None):
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
 
-    # ---- Header bar ----
+    # Header
     pdf.setFillColor(colors.HexColor("#1d3557"))
     pdf.rect(0, height - 80, width, 80, stroke=0, fill=1)
 
@@ -682,18 +673,19 @@ def generate_premium_pdf(
     pdf.drawString(40, height - 50, "Disease Prediction Report")
 
     pdf.setFont("Helvetica", 10)
-    pdf.drawString(400, height - 35, "Academic Project – ML Lab")
-    pdf.drawString(
-        400,
-        height - 50,
-        f"Generated on: {datetime.now().strftime('%d-%m-%Y %H:%M:%S')}",
-    )
+    pdf.drawString(400, height - 35, "Academic ML Project")
+    pdf.drawString(400, height - 50, f"Generated on: {datetime.now().strftime('%d-%m-%Y %H:%M:%S')}")
 
     y = height - 100
 
-    # ---- Patient details ----
+    # Patient details
     draw_section_title(pdf, 40, y, "1. Patient Details")
     y -= 25
+
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(50, y, f"Patient Name: {patient_name}")
+    y -= 20
+
     pdf.setFont("Helvetica", 11)
     for line in patient_info:
         pdf.drawString(50, y, f"- {line}")
@@ -701,7 +693,7 @@ def generate_premium_pdf(
 
     y -= 10
 
-    # ---- Prediction summary ----
+    # Prediction summary
     draw_section_title(pdf, 40, y, "2. Prediction Summary")
     y -= 25
     pdf.setFont("Helvetica-Bold", 11)
@@ -711,9 +703,10 @@ def generate_premium_pdf(
 
     y -= 10
 
-    # ---- Disease details ----
-    draw_section_title(pdf, 40, y, "3. Disease Overview (For Top Prediction)")
+    # Disease details
+    draw_section_title(pdf, 40, y, "3. Disease Overview (Top Prediction)")
     y -= 25
+
     pdf.setFont("Helvetica", 11)
     pdf.drawString(50, y, f"Description: {disease_info['description']}")
     y -= 18
@@ -722,15 +715,13 @@ def generate_premium_pdf(
     pdf.drawString(50, y, f"General suggestions: {disease_info['suggestions']}")
     y -= 25
 
-    # ---- Top predictions table ----
+    # Top predictions
     draw_section_title(pdf, 40, y, "4. Model Top Predictions")
     y -= 25
-
     pdf.setFont("Helvetica-Bold", 11)
     pdf.drawString(50, y, "Disease")
     pdf.drawString(320, y, "Probability")
     y -= 15
-    pdf.setLineWidth(0.5)
     pdf.line(50, y, 520, y)
     y -= 10
 
@@ -739,19 +730,16 @@ def generate_premium_pdf(
         pdf.drawString(50, y, str(disease))
         pdf.drawString(320, y, f"{prob:.2%}")
         y -= 16
-        if y < 120:
-            pdf.showPage()
-            y = height - 80
 
     y -= 10
 
-    # ---- SHAP / Feature importance image (if available) ----
+    # SHAP Image
     if shap_fig is not None:
         if y < 250:
             pdf.showPage()
             y = height - 80
 
-        draw_section_title(pdf, 40, y, "5. Feature Importance / Explainability")
+        draw_section_title(pdf, 40, y, "5. Explainability")
         y -= 20
 
         img_buf = io.BytesIO()
@@ -761,29 +749,26 @@ def generate_premium_pdf(
         try:
             pdf.drawImage(ImageReader(img_buf), 50, y - 220, width=500, height=220)
             y -= 240
-        except Exception:
+        except:
             pdf.setFont("Helvetica", 10)
-            pdf.setFillColor(colors.red)
-            pdf.drawString(
-                50, y - 20, "Unable to render SHAP/feature-importance image in PDF."
-            )
-            pdf.setFillColor(colors.black)
+            pdf.drawString(50, y - 20, "Could not render SHAP image.")
             y -= 40
 
-    # ---- Disclaimer ----
+    # Disclaimer
     if y < 120:
         pdf.showPage()
         y = height - 80
 
     draw_section_title(pdf, 40, y, "6. Important Disclaimer")
     y -= 25
-    pdf.setFont("Helvetica-Oblique", 9)
+
     disclaimer = (
         "This report is generated as part of a machine learning academic project. "
         "It is NOT a medical diagnosis and must not be used as a substitute for "
-        "professional medical advice, diagnosis, or treatment. Please consult a "
-        "qualified doctor for any health-related decisions."
+        "professional medical advice. Consult a qualified doctor for health concerns."
     )
+
+    pdf.setFont("Helvetica-Oblique", 9)
     text_obj = pdf.beginText(50, y)
     text_obj.textLines(disclaimer)
     pdf.drawText(text_obj)
@@ -793,9 +778,8 @@ def generate_premium_pdf(
     buffer.seek(0)
     return buffer
 
-
 # --------------------------------------------------------------
-# MAIN STREAMLIT APP
+# MAIN STREAMLIT APP (PATIENT NAME ADDED)
 # --------------------------------------------------------------
 def main():
     st.set_page_config(
@@ -808,43 +792,38 @@ def main():
 
     model, label_encoder, symptom_names = load_artifacts()
 
-    # ---------------------- HEADER ----------------------
+    # Header
     st.markdown(
         """
         <div class="app-header">
             <h1>🩺 Disease Prediction System using Machine Learning</h1>
             <p>
-            Trained on a Kaggle dataset (41 diseases, 132 symptoms).  
-            This app predicts possible diseases based on selected symptoms, shows the top predictions,
-            explains which symptoms influenced the model, and generates a professional PDF report.
+            Predict possible diseases, view explainability insights,
+            and generate a premium medical-style PDF report.
             </p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown(
-        """
-        > ⚠️ **Disclaimer:** This tool is built for **educational / academic purposes only**  
-        > and must **not** be used for real medical diagnosis or treatment.
-        """
-    )
-
-    # ---------------------- SIDEBAR ----------------------
+    # Sidebar – Patient Info
     st.sidebar.header("👤 Patient Information")
+
+    patient_name = st.sidebar.text_input("Patient Name", "John Doe")
+
     age = st.sidebar.number_input("Age", min_value=1, max_value=100, value=25)
     gender = st.sidebar.radio("Gender", ["Male", "Female", "Other"], index=0)
     duration = st.sidebar.slider("Symptom duration (days)", 0, 30, 3)
 
     st.sidebar.markdown("---")
     st.sidebar.subheader("📊 Model Summary")
-    st.sidebar.write(f"- Symptoms (features): **{len(symptom_names)}**")
+    st.sidebar.write(f"- Features: **{len(symptom_names)} symptoms**")
     if label_encoder:
-        st.sidebar.write(f"- Diseases (classes): **{len(label_encoder.classes_)}**")
+        st.sidebar.write(f"- Diseases: **{len(label_encoder.classes_)}**")
 
     top_n = st.sidebar.slider("Top predictions to show", 1, 10, 5)
 
-    # ---------------------- LAYOUT COLUMNS ----------------------
+    # Layout columns
     col_left, col_right = st.columns([1.3, 1])
 
     # LEFT: Symptom selection
@@ -854,21 +833,21 @@ def main():
         selected = st.multiselect(
             "Start typing to search symptoms:",
             options=symptom_names,
-            help="Select as many symptoms as applicable.",
         )
         st.markdown(
             f"**Selected ({len(selected)}):** "
-            + (", ".join(selected) if selected else "_None yet_")
+            + (", ".join(selected) if selected else "_None selected_")
         )
         predict = st.button("🔍 Predict Disease", use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # RIGHT: Prediction + Explainability
+    # RIGHT: Prediction & PDF
     with col_right:
         st.markdown('<div class="stCard">', unsafe_allow_html=True)
-        st.subheader("2️⃣ Prediction & Risk Summary")
+        st.subheader("2️⃣ Prediction & Analysis")
 
         if predict:
+
             if not selected:
                 st.warning("Please select at least one symptom.")
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -876,7 +855,6 @@ def main():
 
             X_arr = build_feature_vector(selected, symptom_names)
             X = pd.DataFrame(X_arr, columns=symptom_names)
-
 
             if hasattr(model, "predict_proba"):
                 probs = model.predict_proba(X)[0]
@@ -890,11 +868,7 @@ def main():
                 pairs = [(class_labels[i], float(probs[i])) for i in idx_sorted]
             else:
                 pred_idx = model.predict(X)[0]
-                disease_name = (
-                    label_encoder.inverse_transform([pred_idx])[0]
-                    if label_encoder
-                    else str(pred_idx)
-                )
+                disease_name = label_encoder.inverse_transform([pred_idx])[0]
                 pairs = [(disease_name, 1.0)]
 
             best_disease, best_prob = pairs[0]
@@ -905,48 +879,43 @@ def main():
                 f"**Risk Level:** {get_risk_level(best_prob)}"
             )
 
-            # Disease information
             info = get_disease_info(best_disease)
+
             st.markdown("### 🩻 Disease Overview")
             st.write(f"**Description:** {info['description']}")
-            st.write(f"**Common tests:** {info['tests']}")
-            st.write(f"**General suggestions:** {info['suggestions']}")
+            st.write(f"**Common Tests:** {info['tests']}")
+            st.write(f"**Suggestions:** {info['suggestions']}")
 
-            # Top-N probabilities
             df_probs = pd.DataFrame(pairs[:top_n], columns=["Disease", "Probability"])
             st.markdown("### 📊 Top Predictions")
             st.dataframe(df_probs.style.format({"Probability": "{:.2%}"}))
-            st.bar_chart(
-                df_probs.set_index("Disease")["Probability"],
-                use_container_width=True,
-            )
+            st.bar_chart(df_probs.set_index("Disease")["Probability"], use_container_width=True)
 
-            # Explainability
-            st.markdown("### 🧠 Explainability (SHAP / Feature Importance)")
+            st.markdown("### 🧠 Explainability")
             shap_fig = explain_prediction(model, X, symptom_names)
-            if isinstance(shap_fig, str):
-                st.info(shap_fig)
-                shap_fig_obj = None
-            else:
-                st.pyplot(shap_fig)
-                shap_fig_obj = shap_fig
+            shap_fig_obj = shap_fig if not isinstance(shap_fig, str) else None
 
-            # Patient summary
+            if shap_fig_obj:
+                st.pyplot(shap_fig_obj)
+            else:
+                st.info(shap_fig)
+
             st.markdown("### 📄 Patient Summary")
             st.write(
+                f"- Name: **{patient_name}**\n"
                 f"- Age: **{age}**\n"
                 f"- Gender: **{gender}**\n"
-                f"- Symptom duration: **{duration} day(s)**\n"
-                f"- Selected symptoms: {', '.join(selected)}"
+                f"- Duration: **{duration} day(s)**\n"
+                f"- Symptoms: {', '.join(selected)}"
             )
 
-            # PDF download
             st.markdown("### 📥 Download Premium PDF Report")
 
             patient_info = [
+                f"Name: {patient_name}",
                 f"Age: {age}",
                 f"Gender: {gender}",
-                f"Symptom duration: {duration} day(s)",
+                f"Duration: {duration} day(s)",
                 f"Symptoms: {', '.join(selected)}",
             ]
             prediction_info = [
@@ -954,22 +923,25 @@ def main():
                 f"Model confidence: {best_prob:.2%}",
                 f"Risk level: {get_risk_level(best_prob)}",
             ]
+
             pdf_bytes = generate_premium_pdf(
+                patient_name,
                 patient_info,
                 prediction_info,
                 info,
                 pairs[:top_n],
                 shap_fig_obj,
             )
+
             st.download_button(
                 label="📄 Download PDF Report",
                 data=pdf_bytes,
-                file_name="Disease_Prediction_Report.pdf",
+                file_name=f"{patient_name}_Disease_Prediction_Report.pdf",
                 mime="application/pdf",
             )
 
         else:
-            st.info("Select symptoms on the left and click **Predict Disease** to see results.")
+            st.info("Please select symptoms and click **Predict Disease**.")
 
         st.markdown("</div>", unsafe_allow_html=True)
 

@@ -170,6 +170,7 @@ python src/train.py --data data/kaggle_preprocessed.csv --out artifacts/model.jo
 # 6. Run Web App
 python -m streamlit run src/app.py
 
+```
 🧠 Model Explainability (SHAP)
 
 The app displays:
